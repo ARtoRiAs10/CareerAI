@@ -1,0 +1,4 @@
+export JAVA_HOME=$(sdk home java current)
+export PATH=$JAVA_HOME/bin:$PATH
+
+mvn clean compile
