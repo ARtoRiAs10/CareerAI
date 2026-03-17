@@ -48,7 +48,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:3000", "http://localhost:*","https://cuddly-guacamole-x6pj9j4wp7gcv7gx-3000.app.github.dev"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:3000", "http://localhost:*","https://cuddly-guacamole-x6pj9j4wp7gcv7gx-3000.app.github.dev","https://cuddly-guacamole-x6pj9j4wp7gcv7gx-3000.app.github.dev/"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

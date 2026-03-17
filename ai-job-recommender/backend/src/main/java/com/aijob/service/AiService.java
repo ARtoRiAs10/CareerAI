@@ -5,29 +5,11 @@ import com.aijob.model.UserProfile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
-/**
- * AI Service — powered by OpenRouter (https://openrouter.ai)
- *
- * OpenRouter exposes a single OpenAI-compatible endpoint that can route
- * to Claude, GPT-4o, Gemini, Llama, Mistral and many more.
- *
- * Required env var:  OPENROUTER_API_KEY=sk-or-v1-...
- *
- * Switch models any time in application.properties → openrouter.model
- *
- * Popular free / cheap model slugs:
- *   anthropic/claude-3.5-sonnet        ← default (best quality)
- *   anthropic/claude-3-haiku           ← fast & cheap
- *   openai/gpt-4o
- *   openai/gpt-4o-mini
- *   google/gemini-flash-1.5
- *   meta-llama/llama-3.1-70b-instruct  ← free tier
- *   mistralai/mistral-7b-instruct      ← free tier
- */
 @Service
 public class AiService {
 
@@ -77,8 +59,13 @@ public class AiService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
-        // Required by OpenRouter for analytics / rate-limit tier
+        
+        // ADDED: Explicitly ask for JSON to avoid getting HTML error pages back
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        
+        // ADDED: .trim() to prevent hidden space issues from properties file
+        headers.setBearerAuth(apiKey.trim());
+        
         headers.set("HTTP-Referer", siteUrl);
         headers.set("X-Title", siteName);
 
@@ -92,15 +79,13 @@ public class AiService {
         ));
 
         try {
-            ResponseEntity<Map> resp =
-                restTemplate.postForEntity(apiUrl, new HttpEntity<>(body, headers), Map.class);
+            // Making the call
+            ResponseEntity<Map> resp = restTemplate.postForEntity(apiUrl, new HttpEntity<>(body, headers), Map.class);
 
             if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
                 Map<?, ?> respBody = resp.getBody();
 
-                // Standard OpenAI format: choices[0].message.content
-                List<Map<String, Object>> choices =
-                    (List<Map<String, Object>>) respBody.get("choices");
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) respBody.get("choices");
 
                 if (choices != null && !choices.isEmpty()) {
                     Map<String, Object> msg = (Map<String, Object>) choices.get(0).get("message");
@@ -108,23 +93,20 @@ public class AiService {
                         return msg.get("content").toString().trim();
                     }
                 }
-
-                // Surface upstream error details when present
-                if (respBody.containsKey("error")) {
-                    Map<?, ?> err = (Map<?, ?>) respBody.get("error");
-                    throw new RuntimeException("OpenRouter error: " + err.get("message"));
-                }
             }
 
-            throw new RuntimeException(
-                "Unexpected response from OpenRouter (status: " + resp.getStatusCode() + ")");
+            throw new RuntimeException("Unexpected response format from OpenRouter.");
 
-        } catch (org.springframework.web.client.HttpClientErrorException e) {
-            throw new RuntimeException(
-                "OpenRouter API error (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
-        } catch (RuntimeException e) {
-            throw e;
+        } catch (HttpClientErrorException e) {
+            // DETAILED ERROR LOGGING: This prints the HTML or JSON error from OpenRouter to your Terminal
+            System.err.println("===== OPENROUTER API ERROR =====");
+            System.err.println("Status: " + e.getStatusCode());
+            System.err.println("Response Body: " + e.getResponseBodyAsString());
+            System.err.println("================================");
+            
+            throw new RuntimeException("OpenRouter API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
         } catch (Exception e) {
+            System.err.println("Failed to call OpenRouter: " + e.getMessage());
             throw new RuntimeException("Failed to call OpenRouter: " + e.getMessage(), e);
         }
     }
