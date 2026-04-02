@@ -1,1 +1,3 @@
 target
+
+ai-job-recommender/backend/src/main/resources/application.properties
